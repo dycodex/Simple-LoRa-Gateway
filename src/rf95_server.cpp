@@ -69,7 +69,7 @@ bool initRF() {
     rf95.setPromiscuous(true);
     rf95.setModeRx();
 
-    std::cout << "OK NodeID=" << RF_NODE_ID << " @ " << RF_FREQUENCY << "Mhz\n";
+    std::cout << "\nOK NodeID=" << RF_NODE_ID << " @ " << RF_FREQUENCY << "Mhz\n";
     std::cout << "Listening packet....\n\n";
 
     return true;
@@ -107,9 +107,11 @@ int main(int argc, char** argv) {
                 uint8_t flags;
                 int8_t rssi = rf95.lastRssi();
 
-                if (rfManager.recvfromAckTimeout(buf, &len, RFMANAGER_TIMEOUT, &from, NULL, &id, &flags)) {
-                    std::cout << "Packet[" << len << "] *" << id << " #" << from << " " << rssi << "dB:\n";
+                if (rfManager.recvfromAckTimeout(buf, &len, 1000, &from, NULL, &id, &flags)) {
+                    std::cout << "Packet[" << (int)len << "] *" << (int)id << " #" << (int)from << " " << (int)rssi << "dB:\n";
                     std::cout << (char*)buf << std::endl;
+
+                    mqtt->send_message(topic, std::string((char*)buf));
                 } else {
                     std::cout << "receive failed\n";
                 }
