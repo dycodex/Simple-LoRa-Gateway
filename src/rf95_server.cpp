@@ -29,22 +29,25 @@ void sig_handler(int sig) {
 bool initRF() {
     if (!bcm2835_init()) {
         std::cerr << "bcm2835_init() Failed!\n";
-        return 1;
+        return false;
     }
 
     std::cout << "RF95 CS=GPIO" << RF_CS_PIN;
     pinMode(RF_LED_PIN, OUTPUT);
     digitalWrite(RF_LED_PIN, HIGH);
+
     std::cout << ", IRQ=GPIO" << RF_IRQ_PIN;
     pinMode(RF_IRQ_PIN, INPUT);
     bcm2835_gpio_set_pud(RF_IRQ_PIN, BCM2835_GPIO_PUD_DOWN);
     bcm2835_gpio_ren(RF_IRQ_PIN);
+
     std::cout << ", RST=GPIO" << RF_RST_PIN;
     pinMode(RF_RST_PIN, OUTPUT);
     digitalWrite(RF_RST_PIN, LOW);
     bcm2835_delay(150);
     digitalWrite(RF_RST_PIN, HIGH);
     bcm2835_delay(100);
+
     std::cout << ", LED=GPIO" << RF_LED_PIN;
     digitalWrite(RF_LED_PIN, LOW);
 
@@ -56,6 +59,7 @@ bool initRF() {
         return false;
     }
 
+    // This configuration must be implemented on the node as well.
     RH_RF95::ModemConfig modemConfig = {
         0x78,
         0xC4,
@@ -83,10 +87,19 @@ int main(int argc, char** argv) {
         return -1;
     }
 
+    // MQTT Client ID. Some server require this value to be unique among all clients
     const char* id = std::getenv("MQTT_ID");
-    const char* host = std::getenv("MQTT_HOST");
+
+    // MQTT Broker address.
+    const char* host = std::getenv("MQTT_HOST"); 
+
+    // MQTT Username (if required)
     const char* username = std::getenv("MQTT_USER");
+
+    // MQTT Password (if required)
     const char* password = std::getenv("MQTT_PASS");
+
+    // MQTT topic for publishing data
     const char* topic = std::getenv("MQTT_TOPIC");
 
     Mqtt* mqtt = new Mqtt(id, host, 1883, username, password);
@@ -116,14 +129,14 @@ int main(int argc, char** argv) {
                     std::cout << "receive failed\n";
                 }
             }
-
-            if (led_blink && millis() - led_blink > 200) {
-                led_blink = 0;
-                digitalWrite(RF_LED_PIN, LOW);
-            }
-
-            bcm2835_delay(5);
         }
+
+        if (led_blink && millis() - led_blink > 200) {
+            led_blink = 0;
+            digitalWrite(RF_LED_PIN, LOW);
+        }
+
+        bcm2835_delay(5);
     }
 
     digitalWrite(RF_LED_PIN, LOW);
