@@ -1,0 +1,9 @@
+#!/bin/bash
+
+export MQTT_ID=""
+export MQTT_HOST=""
+export MQTT_USER=""
+export MQTT_PASS=""
+export MQTT_TOPIC=""
+
+sudo -E ./rf95_server

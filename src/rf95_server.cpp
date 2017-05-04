@@ -7,7 +7,6 @@
 #include <RHReliableDatagram.h>
 #include <string>
 #include <iostream>
-#include "Mqtt.h"
 
 #define BOARD_DYCODEX
 #include "RasPiBoards.h"
@@ -15,6 +14,18 @@
 #define RF_FREQUENCY  868.10
 #define RF_NODE_ID    1
 #define RFMANAGER_TIMEOUT 3000
+
+// By default, every data that comes to the gateway will not be
+// relayed to a MQTT broker with defined topic. You need to set
+// the MQTT host, client ID, username and password if necessary
+// and most importantly the topic that will be used.
+// 
+// If you want to enable MQTT, uncomment this line below
+// #define MQTT_ENABLED
+
+#ifdef MQTT_ENABLED
+#include "Mqtt.h"
+#endif
 
 RH_RF95 rf95(RF_CS_PIN, RF_IRQ_PIN);
 RHReliableDatagram rfManager(rf95, RF_NODE_ID);
@@ -48,7 +59,7 @@ bool initRF() {
     digitalWrite(RF_RST_PIN, HIGH);
     bcm2835_delay(100);
 
-    std::cout << ", LED=GPIO" << RF_LED_PIN;
+    std::cout << ", LED=GPIO" << RF_LED_PIN << std::endl;
     digitalWrite(RF_LED_PIN, LOW);
 
     rfManager.setTimeout(RFMANAGER_TIMEOUT);
@@ -73,7 +84,7 @@ bool initRF() {
     rf95.setPromiscuous(true);
     rf95.setModeRx();
 
-    std::cout << "\nOK NodeID=" << RF_NODE_ID << " @ " << RF_FREQUENCY << "Mhz\n";
+    std::cout << "OK NodeID=" << RF_NODE_ID << " @ " << RF_FREQUENCY << "Mhz\n";
     std::cout << "Listening packet....\n\n";
 
     return true;
@@ -83,26 +94,52 @@ int main(int argc, char** argv) {
     unsigned long led_blink = 0;
     signal(SIGINT, sig_handler);
 
-    if (!initRF()) {
-        return -1;
-    }
-
+#ifdef MQTT_ENABLED
     // MQTT Client ID. Some server require this value to be unique among all clients
     const char* id = std::getenv("MQTT_ID");
+    if (id == NULL) {
+        std::cerr << "MQTT_ID must be given!\n";
+        return -1; 
+    }
+
+    std::cout << "MQTT_ID: " << id << std::endl;
 
     // MQTT Broker address.
-    const char* host = std::getenv("MQTT_HOST"); 
+    const char* host = std::getenv("MQTT_HOST");
+    if (host == NULL) {
+        std::cerr << "MQTT_HOST must be given!\n";
+        return -1;
+    }
+    
+    std::cout << "MQTT_HOST: " << host << std::endl;
 
     // MQTT Username (if required)
     const char* username = std::getenv("MQTT_USER");
+    if (username != NULL) {
+        std::cout << "MQTT_USER: " << username << std::endl; 
+    }
 
     // MQTT Password (if required)
     const char* password = std::getenv("MQTT_PASS");
+    if (password != NULL) {
+        std::cout << "MQTT_PASS: " << password << std::endl;
+    }
 
     // MQTT topic for publishing data
     const char* topic = std::getenv("MQTT_TOPIC");
+    if (topic == NULL) {
+        std::cerr << "MQTT_TOPIC must be given!\n";
+        return -1;
+    }
+
+    std::cout << "MQTT_TOPIC: " << topic << std::endl;
 
     Mqtt* mqtt = new Mqtt(id, host, 1883, username, password);
+#endif
+
+    if (!initRF()) {
+        return -1;
+    }
 
     while(!force_exit) {
         if (bcm2835_gpio_eds(RF_IRQ_PIN)) {
@@ -123,8 +160,9 @@ int main(int argc, char** argv) {
                 if (rfManager.recvfromAckTimeout(buf, &len, 1000, &from, NULL, &id, &flags)) {
                     std::cout << "Packet[" << (int)len << "] *" << (int)id << " #" << (int)from << " " << (int)rssi << "dB:\n";
                     std::cout << (char*)buf << std::endl;
-
+#ifdef MQTT_ENABLED
                     mqtt->send_message(topic, std::string((char*)buf));
+#endif
                 } else {
                     std::cout << "receive failed\n";
                 }
