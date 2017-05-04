@@ -2,8 +2,12 @@
 
 export MQTT_ID=""
 export MQTT_HOST=""
-export MQTT_USER=""
-export MQTT_PASS=""
+
+# Remove the # symbol (uncomment) in the 2 lines below if 
+# the server requires authentication
+
+# export MQTT_USER=""
+# export MQTT_PASS=""
 export MQTT_TOPIC=""
 
 sudo -E ./rf95_server
